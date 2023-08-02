@@ -1,0 +1,21 @@
+{
+  "name": "ExcelProgramme",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "js-pinyin": "^0.2.4",
+    "vant": "^3.4.9",
+    "vue": "^3.2.25",
+    "vxe-table": "^4.4.2",
+    "xe-utils": "^3.5.11",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^2.0.0",
+    "vite": "^2.7.2"
+  }
+}
