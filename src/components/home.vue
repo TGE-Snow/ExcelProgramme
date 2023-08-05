@@ -3,25 +3,76 @@
     <div class="boxs">
       <input type="file" style="height: 40px" @change="change" />
     </div>
-    <div>
+    <div style="display: flex">
       <vxe-button
-        v-for="item in state.buttonList"
         type="text"
         status="primary"
-        :content="item.text"
-        @click="events.testFunc(item.value)"
+        content="初始化编辑"
+        @click="events.initEditCode"
       ></vxe-button>
-    </div>
-    <div>
-      <vxe-textarea v-model="state.hmd" placeholder="黑名单"></vxe-textarea>
+
+      <div v-for="(item, index) in state.buttonList" :key="index">
+        <vxe-button
+          type="text"
+          status="primary"
+          :content="item.text"
+          @click="events.testFunc(item.value)"
+        ></vxe-button>
+        <i class="vxe-icon-edit" @click="events.editCode(item, index)"></i>
+      </div>
     </div>
     <vxe-grid v-bind="gridOptions" ref="vxetable"> </vxe-grid>
+    <vxe-modal
+      v-model="state.modal.show"
+      width="600"
+      show-footer
+      :mask="false"
+      :lock-view="false"
+      @confirm="events.changeCode"
+    >
+      <template #title>
+        <span style="color: red">编辑</span>
+      </template>
+      <template #default>
+        <div>标题:<vxe-input v-model="state.modal.text"></vxe-input></div>
+        <div>
+          执行逻辑:<vxe-textarea v-model="state.modal.value"></vxe-textarea>
+        </div>
+        <vxe-button
+          status="primary"
+          content="执行"
+          @click="events.runCsCode"
+        ></vxe-button>
+      </template>
+    </vxe-modal>
+    <vxe-modal
+      v-model="state.initmodal.show"
+      width="600"
+      show-footer
+      :mask="false"
+      :lock-view="false"
+      @confirm="events.changeinitCode"
+    >
+      <template #title>
+        <span style="color: red">初始化</span>
+      </template>
+      <template #default>
+        <div>
+          执行逻辑:<vxe-textarea v-model="state.initmodal.code"></vxe-textarea>
+        </div>
+        <vxe-button
+          status="primary"
+          content="执行"
+          @click="events.runCsCode(state.modal.value)"
+        ></vxe-button>
+      </template>
+    </vxe-modal>
   </div>
 </template>
 
 <script>
 import { computed, reactive, ref } from "@vue/reactivity";
-import { nextTick, onMounted, watch } from "@vue/runtime-core";
+import { h, nextTick, onMounted, watch } from "@vue/runtime-core";
 import XLSX from "xlsx/dist/xlsx.core.min.js";
 import { Dialog, Toast } from "vant";
 import pinyin from "js-pinyin";
@@ -35,8 +86,7 @@ import {
   toDateString,
   toNumber,
 } from "xe-utils";
-import { ESort, setCount, executeSql } from "./unit";
-let db;
+import { executeSql } from "./unit";
 export default {
   name: "home",
   setup(props) {
@@ -45,62 +95,143 @@ export default {
       
       `,
       data: {},
+      modal: {
+        show: false,
+        text: "",
+        value: "",
+        index: 0,
+      },
+      initmodal: {
+        show: false,
+        code: "",
+      },
       initCode: `
-      executeSql("select * from sheets0 where row_GS = '天津' and row_SFWZSTZ = '是' order by row_LJTGE desc limit 0,100").then(({rows})=>{
-rows.forEach((element,index) => {
-executeSql("update sheets0 SET row_LJPMQ100='"+(index + 1)+"' where ID='"+element.ID+"'");
-});
-});
-
-executeSql("select * from sheets0 where row_GS = '津外' and row_SFWZSTZ = '是' order by row_LJTGE desc limit 0,100").then(({rows})=>{
-rows.forEach((element,index) => {
-executeSql("update sheets0 SET row_LJPMQ100='"+(index + 1)+"' where ID='"+element.ID+"'");
-});
-})
-
-executeSql("select row_LSTD from sheets0 where row_GS='天津' GROUP BY row_LSTD")
-  .then(async ({ rows }) => {
-    console.log(rows);
-    const rowData = rows;
-    for (let index = 0; index < rowData.length; index++) {
-      const item = rowData[index];
-      let { rows } = await executeSql(
-        "select ID,row_GXZDF from sheets0 where row_GS='天津' and row_LSTD='" +
-          item.row_LSTD +
-          "' order by row_DQXJZSHJ desc limit 0,20"
+      const jn = await executeSql(
+        "select ID from sheets0 where row_GS = '天津' and row_SFWZSTZ = '是' order by row_LJTGE desc limit 0,100"
       );
-      const rowData1 = rows;
-      for (let index1 = 0; index1 < rowData1.length; index1++) {
-        const item1 = rowData1[index1];
-        const dqdf = 75 - index1;
-        let df = 0;
-        if (isNumber(item1["row_GXZDF"])) {
-          df = toNumber(item1["row_GXZDF"]);
-        }
-        const zf = dqdf + df;
+      for (let index = 0; index < jn.rows.length; index++) {
+        const item = jn.rows[index];
         await executeSql(
-          "update sheets0 SET row_DQYJDF='" +
-            dqdf +
-            "',row_ZF='" +
-            zf +
-            "',row_TDDQYJQ20='" +
-            (index1+1) +
-            "' where ID='" +
-            item1.ID +
+          "update sheets0 SET row_LJPMQ100=" +
+            (index + 1) +
+            " where ID='" +
+            item.ID +
             "'"
         );
       }
-    }
-  });
-      
+      const jw = await executeSql(
+        "select ID from sheets0 where row_GS = '津外' and row_SFWZSTZ = '是' order by row_LJTGE desc limit 0,100"
+      );
+      for (let index = 0; index < jw.rows.length; index++) {
+        const item = jw.rows[index];
+        await executeSql(
+          "update sheets0 SET row_LJPMQ100=" +
+            (index + 1) +
+            " where ID='" +
+            item.ID +
+            "'"
+        );
+      }
+
+      const lstdjw = await executeSql(
+        "select row_LSTD from sheets0 where row_GS='津外' GROUP BY row_LSTD"
+      );
+      for (let index = 0; index < lstdjw.rows.length; index++) {
+        const item = lstdjw.rows[index];
+        let pm20 = await executeSql(
+          "select ID,row_GXZDF from sheets0 where row_GS='津外' and row_LSTD='" +
+            item.row_LSTD +
+            "' order by row_LSDQJEHJ desc limit 0,20"
+        );
+
+        for (let index20 = 0; index20 < pm20.rows.length; index20++) {
+          const item20 = pm20.rows[index20];
+          await executeSql(
+            "update sheets0 SET row_TDDQYJQ20=" +
+              (index20 + 1) +
+              " where ID='" +
+              item20.ID +
+              "'"
+          );
+        }
+
+        let pm15 = await executeSql(
+          "select ID,row_GXZDF from sheets0 where row_GS='津外' and row_LSTD='" +
+            item.row_LSTD +
+            "' and row_TZ != row_LSTD and row_TZBH NOT IN (723,17166,14541,15332,1590,258,4784,2797,19511,7696,4988,26,20279,635,3204,61) order by row_DQXJZSHJ desc limit 0,15"
+        );
+
+        for (let index15 = 0; index15 < pm15.rows.length; index15++) {
+          const item15 = pm15.rows[index15];
+          const dqdf = 75 - index15;
+          let df = 0;
+          if (isNumber(item15["row_GXZDF"])) {
+            df = toNumber(item15["row_GXZDF"]);
+          }
+          await executeSql(
+            "update sheets0 SET row_DQYJDF=" +
+              dqdf +
+              ",row_ZF=" +
+              (dqdf + df) +
+              " where ID='" +
+              item15.ID +
+              "'"
+          );
+        }
+      }
+
+      const lstdjn = await executeSql(
+        "select row_LSTD from sheets0 where row_GS='天津' GROUP BY row_LSTD"
+      );
+      for (let index = 0; index < lstdjn.rows.length; index++) {
+        const item = lstdjn.rows[index];
+        let pm20 = await executeSql(
+          "select ID,row_GXZDF from sheets0 where row_GS='天津' and row_LSTD='" +
+            item.row_LSTD +
+            "' order by row_LSDQJEHJ desc limit 0,20"
+        );
+
+        for (let index20 = 0; index20 < pm20.rows.length; index20++) {
+          const item20 = pm20.rows[index20];
+          await executeSql(
+            "update sheets0 SET row_TDDQYJQ20=" +
+              (index20 + 1) +
+              " where ID='" +
+              item20.ID +
+              "'"
+          );
+        }
+
+        let pm15 = await executeSql(
+          "select ID,row_GXZDF from sheets0 where row_GS='天津' and row_LSTD='" +
+            item.row_LSTD +
+            "' and row_TZ != row_LSTD and row_TZBH NOT IN (723,17166,14541,15332,1590,258,4784,2797,19511,7696,4988,26,20279,635,3204,61) order by row_DQXJZSHJ desc limit 0,15"
+        );
+
+        for (let index15 = 0; index15 < pm15.rows.length; index15++) {
+          const item15 = pm15.rows[index15];
+          const dqdf = 75 - index15;
+          let df = 0;
+          if (isNumber(item15["row_GXZDF"])) {
+            df = toNumber(item15["row_GXZDF"]);
+          }
+          await executeSql(
+            "update sheets0 SET row_DQYJDF=" +
+              dqdf +
+              ",row_ZF=" +
+              (dqdf + df) +
+              " where ID='" +
+              item15.ID +
+              "'"
+          );
+        }
+      }
       `,
       buttonList: [
         {
           text: "全部",
           value: `
-          executeSql("select * from sheets0").then(({rows})=>{
-            reloadData(rows);
-})
+          executeSql("select * from sheets0").then(({rows})=>{reloadData(rows);})
           `,
         },
         {
@@ -120,22 +251,33 @@ executeSql("select row_LSTD from sheets0 where row_GS='天津' GROUP BY row_LSTD
           `,
         },
         {
-          text: "津内前20名",
+          text: "团队前20名",
           value: `
-          executeSql("select row_LSTD from sheets0 where row_GS='天津' GROUP BY row_LSTD")
-  .then(async ({ rows }) => {
-    console.log(rows);
-    const rowData = rows;
-    for (let index = 0; index < rowData.length; index++) {
-      const item = rowData[index];
-      let { rows } = await executeSql(
-        "select * from sheets0 where row_GS='天津' and row_LSTD='" +
-          item.row_LSTD +
-          "' order by row_DQXJZSHJ desc limit 0,20"
-      );
-      reloadData(rows);
-    }
-  });
+          executeSql(
+        "select * from sheets0 where row_TDDQYJQ20 > 0 ORDER BY row_GS,row_LSTD,row_TDDQYJQ20"
+      ).then(({rows})=>{
+            reloadData(rows);
+});
+          `,
+        },
+        {
+          text: "团队总分前15",
+          value: `
+          executeSql(
+        "select * from sheets0 where row_ZF > 0 ORDER BY row_GS,row_LSTD,row_ZF DESC"
+      ).then(({ rows }) => {
+        reloadData(rows);
+      });
+          `,
+        },
+        {
+          text: "团队业绩得分前15",
+          value: `
+          executeSql(
+        "select * from sheets0 where row_DQYJDF > 0 ORDER BY row_GS,row_LSTD,row_DQYJDF DESC"
+      ).then(({ rows }) => {
+        reloadData(rows);
+      });
           `,
         },
       ],
@@ -163,41 +305,17 @@ executeSql("select row_LSTD from sheets0 where row_GS='天津' GROUP BY row_LSTD
     });
 
     onMounted(async () => {
-      // const a = await executeSql("DROP DATABASE mydb;");
-      // const b = await executeSql(
-      //   "INSERT INTO foo (id, log) VALUES (4, 'foo2')"
-      // );
-      // console.log(a,b);
-      // await executeSql("INSERT INTO foo (id, log) VALUES (3, 'foo3')");
-      // db.transaction(function (tx) {
-      //   console.log(11111);
-      //   tx.executeSql(
-      //     "CREATE TABLE IF NOT EXISTS LOGS1 (id unique, log)",
-      //     [],
-      //     function (t, r) {
-      //       console.log("s", t, r);
-      //       tx.executeSql(
-      //         "INSERT INTO LOGS1 (id, log) VALUES (0, 'test1')",
-      //         [],
-      //         (a1, a2) => {
-      //           console.log("i", a1, a2);
-      //         },
-      //         (a1, a2) => {
-      //           console.log("e", a1, a2);
-      //         }
-      //       );
-      //       // tx.executeSql("INSERT INTO LOGS1 (id, log) VALUES (0, 'test2')");
-      //       // tx.executeSql("INSERT INTO LOGS1 (id, log) VALUES (0, 'test3')");
-      //     },
-      //     function (t, e) {
-      //       console.log(t, e);
-      //     }
+      // let rowList = [];
+      // for (let index = 0; index < lstd.rows.length; index++) {
+      //   const item = lstd.rows[index];
+      //   let { rows } = await executeSql(
+      //     "select * from sheets0 where row_GS='天津' and row_LSTD='" +
+      //       item.row_LSTD +
+      //       "' order by row_DQXJZSHJ desc limit 0,20"
       //   );
-      //   tx.executeSql("CREATE TABLE IF NOT EXISTS foo (id unique, log)");
-      //   tx.executeSql("INSERT INTO foo (id, log) VALUES (0, 'foo1')");
-      //   tx.executeSql("INSERT INTO foo (id, log) VALUES (0, 'foo2')");
-      //   tx.executeSql("INSERT INTO foo (id, log) VALUES (0, 'foo3')");
-      // });
+      //   rowList = rowList.concat(rows);
+      // }
+      // reloadData(rowList);
     });
 
     const change = (e) => {
@@ -253,7 +371,7 @@ executeSql("select row_LSTD from sheets0 where row_GS='天津' GROUP BY row_LSTD
                     keyList.push(`${nk}`);
                     if (isNumber(element)) {
                       keyObj[nk] = round(element, 2);
-                      tCol[colIndex] += " REAL";
+                      tCol[colIndex] += " TEXT";
                       valueList.push(keyObj[nk]);
                     } else {
                       keyObj[nk] = element.replace(/"/g, "'");
@@ -264,13 +382,21 @@ executeSql("select row_LSTD from sheets0 where row_GS='天津' GROUP BY row_LSTD
               }
 
               if (index == 0) {
+                const findTable = await executeSql(
+                  `SELECT name FROM sqlite_master WHERE type='table' AND name='sheets${
+                    Object.keys(state.data).length
+                  }';`
+                );
+                if (findTable.rows.length > 0) {
+                  await executeSql(
+                    ` DROP TABLE sheets${Object.keys(state.data).length}`
+                  );
+                }
+
                 await executeSql(
                   `CREATE TABLE IF NOT EXISTS sheets${
                     Object.keys(state.data).length
                   } (ID INTEGER PRIMARY KEY,${tCol.join(",")})`
-                );
-                await executeSql(
-                  `DELETE FROM sheets${Object.keys(state.data).length}`
                 );
               }
 
@@ -282,8 +408,8 @@ executeSql("select row_LSTD from sheets0 where row_GS='天津' GROUP BY row_LSTD
               );
             }
 
-            await events.testFunc(state.initCode);
-
+            const a = await events.testFunc(state.initCode);
+            console.log("init", a);
             console.log("tableRow", tableRow);
             vxetable.value.reloadData(tableRow);
             state.data[`sheets${Object.keys(state.data).length}`] = tableCol;
@@ -363,7 +489,33 @@ executeSql("select row_LSTD from sheets0 where row_GS='天津' GROUP BY row_LSTD
           var reg = new RegExp(key, "g");
           evalCode = evalCode.replace(reg, `method.${key}`);
         }
-        eval(evalCode);
+
+        return await eval(`(function (params) {
+          return new Promise(async (evalRet) => {
+            ${evalCode}
+            evalRet(true);
+          });
+        })();`);
+      },
+      editCode: ({ text, value }, index) => {
+        state.modal.show = true;
+        state.modal.text = text;
+        state.modal.value = value;
+        state.modal.index = index;
+      },
+      changeCode: () => {
+        state.buttonList[state.modal.index].text = state.modal.text;
+        state.buttonList[state.modal.index].value = state.modal.value;
+      },
+      runCsCode: async (value) => {
+        await events.testFunc(value);
+      },
+      initEditCode: () => {
+        state.initmodal.show = true;
+        state.initmodal.code = clone(state.initCode, true);
+      },
+      changeinitCode: () => {
+        state.initCode = clone(state.initmodal.code, true);
       },
     };
 
